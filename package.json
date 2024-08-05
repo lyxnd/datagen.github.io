@@ -7,7 +7,8 @@
     "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "generate-assets": "node generate-image-path.js"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

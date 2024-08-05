@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed } from 'vue';
+import {ref, computed, watch} from 'vue';
 import { ArrowRight } from "@element-plus/icons-vue";
-
-
+import { saveAs } from 'file-saver';
+const baseURL = import.meta.env.VITE_BASE_URL;
+const imagePathsUrl = `${baseURL}image-paths.json`;
 // 配方类型和类别选项
 const types = [
   { label: 'Shaped Crafting', value: 'minecraft:crafting_shaped' },
@@ -28,22 +29,18 @@ const categories = [
 
 const imageFiles = ref([]);
 
-// 映射表
-const itemMappings = {
-
-  // 其他映射
-};
-
 // 使用 Vite 的 import.meta.glob 读取 images 目录下的所有图片
-const importAllImages = () => {
-  const images = import.meta.glob('/src/assets/items/*.{png,jpeg,jpg,svg}');
-  for (const [path, importer] of Object.entries(images)) {
-    importer().then(module => {
-      let fileName = path.split('/').pop();
-      let i = fileName.lastIndexOf('.');
-      fileName = fileName.substring(0, i);
-      imageFiles.value.push({ label: fileName, path: module.default,value: module.default});
+const importAllImages = async () => {
+  try {
+    const response = await fetch(imagePathsUrl);
+    const paths = await response.json();
+
+    imageFiles.value = paths.map(path => {
+      const fileName = path.split('/').pop().split('.')[0];
+      return { label: fileName, path: path, value: path };
     });
+  } catch (error) {
+    console.error('Error loading image paths:', error);
   }
 };
 
@@ -66,6 +63,7 @@ const inputName = ref(Array(9).fill('')); // 存储每个按钮的图标
 const resultName=ref('')
 const modName=ref('')
 const jsonOutput = ref('');
+const exportFile = ref('');
 
 // 处理选项卡选择
 const confirmSelection = () => {
@@ -102,6 +100,8 @@ const cutting = computed(()=>(type.value==='minecraft:stonecutting'))
 let pattern=['#','*','~','X','Y','Z','A','B','C']
 let patternBack =[]
 const generateJSON = () => {
+  console.log(imageFiles)
+  console.log(imagePathsUrl)
   let recipe = {};
   if (type.value === 'minecraft:crafting_shaped') {
     recipe = {
@@ -193,17 +193,35 @@ const processSingleInput = (icon,name) => {
         return name;
     }
   }
+  console.log(icon)
   let fileName = icon.split('/').pop();
+  console.log(fileName)
   let i = fileName.lastIndexOf('.');
   fileName = fileName.substring(0, i);
   // 查找映射表中的物品名称
-  return itemMappings[fileName] || 'minecraft:' + fileName;
+  return 'minecraft:' + fileName;
 }
+
+// watch([selectedType, pools], generateJson, { deep: true });
+const exportJson = () => {
+  const blob = new Blob([jsonOutput.value], { type: "application/json" });
+  if(!exportFile.value)  {
+    let name;
+    if (type === 'minecraft:crafting_shaped') {
+      name = 'to' + processSingleInput(resultIcon.value, resultName.value) + '.json'
+    } else {
+      name = 'from' + processSingleInput(buttonIcons.value[0], inputName.value[0]) + 'to' + processSingleInput(resultIcon.value, resultName.value) + '.json'
+    }
+    saveAs(blob, name);
+  }else {
+    saveAs(blob, exportFile.value);
+  }
+};
 </script>
 
 <template>
-  <el-container>
-    <el-header>
+  <el-container style="height: 100%">
+    <el-header height="130px">
       <div style="display: flex;align-items: center;justify-content: flex-start">
         <span>Type:</span>
         <el-select v-model="type" placeholder="Select type">
@@ -217,11 +235,13 @@ const processSingleInput = (icon,name) => {
                      :value="option.value"></el-option>
         </el-select>
       </div>
-      <el-input v-model="modName" placeholder="在此输入mod名称，则在选择时只需输入物品名" style="margin: 15px 0"/>
+      <div style="display: flex;flex-direction: column;width: 60%">
+        <el-input v-model="modName" placeholder="在此输入mod名称，则在选择时只需输入物品名" style="margin: 8px 0"/>
+        <el-input v-model="exportFile" placeholder="Export file name" style="margin: 8px 0;"/>
+      </div>
     </el-header>
 
-    <el-main style="margin: 15px 0">
-
+    <el-main style="margin-top: 10px;padding-top: 5px">
       <div class="container">
 
         <el-input-number v-model="materialCount" :min="1" v-if="shapeless" @change="confirmSelection"/>
@@ -265,61 +285,65 @@ const processSingleInput = (icon,name) => {
           <el-button type="success" round @click="generateJSON">生成</el-button>
         </div>
       </div>
+
+      <!-- JSON 显示区域 -->
+      <div >
+        <el-card style="background-color: #282828;color: white;overflow: auto;height: 100%">
+          <div style="width: 100%;display: flex;justify-content: flex-end;">
+            <el-button type="success" round @click="exportJson" style="z-index: 1;">导出</el-button>
+          </div>
+          <pre>{{ jsonOutput }}</pre>
+        </el-card>
+      </div>
     </el-main>
 
-    <!-- JSON 显示区域 -->
-    <el-main>
-      <el-card style="background-color: #282828;color: white">
-        <pre>{{ jsonOutput }}</pre>
-      </el-card>
-    </el-main>
+  </el-container>
 
-    <!-- 图标选择对话框 -->
-    <el-dialog v-model="dialogVisible" title="Select Items" style="height: 40%">
-      <div>
-        <el-select-v2 v-model="selectedFile" :options="imageFiles" placeholder="Select Items" filterable clearable :item-height="60"
-                      @change="confirmSelection" size="large" :props="{checkStrictly:true}">
-          <template #default="{ item }" class="selector">
-            <el-image :src="item.path" style="width: 50px; height: 50px; margin-right: 10px;"/>
-            <span style="align-items: center;height: 100%;padding-left: 20px;font-weight: bold;font-size: 30px">
+  <!-- 图标选择对话框 -->
+  <el-dialog v-model="dialogVisible" title="Select Items" style="height: 40%">
+    <div>
+      <el-select-v2 v-model="selectedFile" :options="imageFiles" placeholder="Select Items" filterable clearable :item-height="60"
+                    @change="confirmSelection" size="large" :props="{checkStrictly:true}">
+        <template #default="{ item }" class="selector">
+          <el-image :src="item.path" style="width: 50px; height: 50px; margin-right: 10px;"/>
+          <span style="align-items: center;height: 100%;padding-left: 20px;font-weight: bold;font-size: 30px">
               {{ item.label }}
             </span>
-          </template>
-        </el-select-v2>
+        </template>
+      </el-select-v2>
 
-        <el-input placeholder="上方未找到，可在此输入，自定义mod内容也需在此输入(格式: minecraft:stick)" style="margin: 15px 0"
-                   v-model="inputName[selectedGrid-1]" />
-      </div>
+      <el-input placeholder="上方未找到，可在此输入，自定义mod内容也需在此输入(格式: minecraft:stick)" style="margin: 15px 0"
+                v-model="inputName[selectedGrid-1]" />
+    </div>
 
-      <span slot="footer" class="dialog-footer">
+    <span slot="footer" class="dialog-footer">
         <el-button @click="dialogVisible = false">Cancel</el-button>
         <el-button type="primary" @click="confirmSelection">Confirm</el-button>
       </span>
-    </el-dialog>
+  </el-dialog>
 
-    <!-- 结果图标选择框 -->
-    <el-dialog v-model="resultDialogVisible" title="Select Result Item" style="height: 40%">
-      <div>
-        <el-select-v2 v-model="resultIcon" :options="imageFiles" placeholder="Select Result" filterable clearable :item-height="60"
-                      @change="confirmSelection" size="large">
-          <template #default="{ item }" class="selector">
-            <el-image :src="item.path" style="width: 50px; height: 50px; "/>
-            <span style="height: 100%;font-weight: bold;padding-left: 30px;font-size: 30px;">
+  <!-- 结果图标选择框 -->
+  <el-dialog v-model="resultDialogVisible" title="Select Result Item" style="height: 40%">
+    <div>
+      <el-select-v2 v-model="resultIcon" :options="imageFiles" placeholder="Select Result" filterable clearable :item-height="60"
+                    @change="confirmSelection" size="large">
+        <template #default="{ item }" class="selector">
+          <el-image :src="item.path" style="width: 50px; height: 50px; "/>
+          <span style="height: 100%;font-weight: bold;padding-left: 30px;font-size: 30px;">
               {{ item.label }}
             </span>
-          </template>
-        </el-select-v2>
-        <el-input placeholder="上方未找到，可在此输入，自定义mod内容也需在此输入(格式: minecraft:stick)" style="margin: 15px 0"
-                   v-model="resultName" />
+        </template>
+      </el-select-v2>
+      <el-input placeholder="上方未找到，可在此输入，自定义mod内容也需在此输入(格式: minecraft:stick)" style="margin: 15px 0"
+                v-model="resultName" />
 
-      </div>
+    </div>
 
-      <span slot="footer" class="dialog-footer">
+    <span slot="footer" class="dialog-footer">
         <el-button @click="resultDialogVisible = false">Cancel</el-button>
         <el-button type="primary" @click="confirmSelection">Confirm</el-button>
       </span>
-    </el-dialog>
-  </el-container>
+  </el-dialog>
 </template>
 
 <style scoped>

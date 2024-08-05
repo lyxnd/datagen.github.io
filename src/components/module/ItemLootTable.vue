@@ -2,6 +2,8 @@
 
 import {ref,watch,reactive} from "vue";
 import {Close} from "@element-plus/icons-vue";
+
+
 const item1 = reactive({
   item:null,
   type:true,
@@ -22,21 +24,21 @@ const emit = defineEmits(['update-item', 'remove-item'])
 const removeItem=()=> {
   emit('remove-item')
 }
-
 watch(item1, confirmSelection, { deep: true });
-const importAllImages = () => {
-  const images = import.meta.glob('/src/assets/items/*.{png,jpeg,jpg,svg}');
-  for (const [path, importer] of Object.entries(images)) {
-    importer().then(module => {
-      let fileName = path.split('/').pop();
-      let i = fileName.lastIndexOf('.');
-      fileName = fileName.substring(0, i);
-      imageFiles.value.push({label: fileName, value: module.default});
+const importAllImages = async () => {
+  try {
+    const response = await fetch('/image-paths.json');
+    const paths = await response.json();
+
+    imageFiles.value = paths.map(path => {
+      const fileName = path.split('/').pop().split('.')[0];
+      return { label: fileName, path: path, value: path };
     });
+  } catch (error) {
+    console.error('Error loading image paths:', error);
   }
 };
 importAllImages()
-
 const functionType = [
   {label: 'Enchant With Levels', value: 'minecraft:enchant_with_levels'},
   {label: 'Set Count', value: 'minecraft:set_count'},

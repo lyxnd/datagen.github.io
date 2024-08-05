@@ -4,13 +4,11 @@ import {CirclePlus} from "@element-plus/icons-vue";
 import ItemLootTable from "@/components/module/ItemLootTable.vue";
 
 const jsonOutput = ref('')
+const exportFile = ref('')
 const selectedType = ref(null)
 const sequence = ref(null)
 const pools = ref([])
 import { saveAs } from 'file-saver';
-const confirmSelection = () => {
-
-};
 const typeOptions = [
   //label : 选择的查找键,value 选择后会赋予变量的值
   {label: 'Empty', value: 'minecraft:empty'},
@@ -132,7 +130,11 @@ const generateJson = () => {
 watch([selectedType, pools], generateJson, { deep: true });
 const exportJson = () => {
   const blob = new Blob([jsonOutput.value], { type: "application/json" });
-  saveAs(blob, sequence.value||'lootTable.json');
+  if(exportFile.value){
+    saveAs(blob, exportFile.value+'.json');
+  }else{
+    saveAs(blob, sequence.value||'lootTable.json');
+  }
 };
 </script>
 
@@ -141,6 +143,9 @@ const exportJson = () => {
     <el-container style="height: 100%">
       <el-aside width="440px" style="box-shadow: aqua 2px 0">
         <div style="display: flex;flex-direction: column">
+          <div class="pool">
+            <el-input v-model="exportFile" placeholder="导出Json命名(选填)" style="width:60%"/>
+          </div>
           <div style="display: flex;flex-direction: row;width: 100%">
             <span style="align-items: center;padding-right:10px">Type :  </span>
             <el-select v-model="selectedType" style="width: 60%">
