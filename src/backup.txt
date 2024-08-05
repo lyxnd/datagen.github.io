@@ -1,0 +1,7 @@
+ <el-select-v2 v-model="selectedFile" :options="imageFiles" placeholder="Select Items" filterable clearable class="selsectbox"
+                      @change="confirmSelection"  size="large" popper-class="selector">
+          <template #default="{ item }" class="selector">
+            <el-image :src="item.path" style="width: 50px; height: 50px; margin-right: 10px;"/>
+            <span style="align-items: center;height: 100%;padding-left: 60px">{{ item.name }}</span>
+          </template>
+        </el-select-v2>
