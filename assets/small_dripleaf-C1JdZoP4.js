@@ -1,1 +1,0 @@
-const A="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGElEQVQ4T2NgAIKcBsP/+OhRMApGwYgAAK4TCHF5zre7AAAAAElFTkSuQmCC";export{A as default};
